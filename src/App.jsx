@@ -73,7 +73,7 @@ function App() {
   }, [lighting])
 
   // 4. Atajo de teclado "T" para ocultar/mostrar el panel de herramientas
-  const [levaHidden, setLevaHidden] = useState(false)
+  const [levaHidden, setLevaHidden] = useState(true)
   useEffect(() => {
     const handleKeyDown = (e) => {
       // Evitar que se active si el usuario está escribiendo en algún input dentro del panel
