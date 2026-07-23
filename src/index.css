@@ -1,0 +1,163 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Inter:wght@400;500;600&display=swap');
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body, html, #root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: #1a1a1a;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: white;
+}
+
+/* === 2D HUD OVERLAY === */
+.web-ui-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none; /* Deja pasar los clicks al canvas por defecto */
+  z-index: 20;
+  display: flex;
+  align-items: center; /* Centrado vertical */
+  justify-content: flex-end; /* Aparece en la parte derecha de la pantalla */
+  padding-right: 5%;
+}
+
+.art-overlay-content {
+  background: rgba(10, 10, 10, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+  padding: 40px;
+  border-radius: 4px;
+  width: 550px;
+  color: #fff;
+  opacity: 0;
+  transform: translateX(50px);
+  transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+  pointer-events: auto; /* IMPORTANTE: Atrapa los clicks aquí para que los botones funcionen */
+  font-family: 'Playfair Display', serif;
+}
+
+.web-ui-overlay.visible .art-overlay-content {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Tipografía HUD */
+.art-title {
+  font-size: 2.2rem;
+  font-weight: 700;
+  margin-bottom: 24px;
+  letter-spacing: 0.02em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  padding-bottom: 16px;
+  color: #ffffff;
+}
+
+.art-content-wrapper {
+  display: flex;
+  gap: 32px;
+}
+
+.art-left-col {
+  flex: 1;
+  border: 1px dashed rgba(255, 255, 255, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.5);
+  min-height: 180px;
+  text-align: center;
+  padding: 10px;
+}
+
+.art-right-col {
+  flex: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+.art-description {
+  font-size: 1.1rem;
+  line-height: 1.7;
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 24px;
+  font-style: italic;
+}
+
+.art-button {
+  background: white;
+  color: black;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 4px;
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-start;
+}
+
+.art-button:hover {
+  background: #e0e0e0;
+  transform: scale(1.05);
+}
+
+.art-button:active {
+  transform: scale(0.95);
+}
+
+/* CROSSHAIR & INSTRUCTIONS */
+.crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 20px;
+  height: 20px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.crosshair::before {
+  content: '';
+  width: 4px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 8px rgba(0,0,0,0.5);
+  border-radius: 50%;
+}
+.instructions {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.4);
+  padding: 12px 24px;
+  border-radius: 30px;
+  pointer-events: none;
+  z-index: 10;
+  font-size: 0.9rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
