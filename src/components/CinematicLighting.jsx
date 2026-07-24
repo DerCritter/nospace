@@ -122,7 +122,7 @@ export default function CinematicLighting({ lighting }) {
       />
       
       {/* El Environment usa un archivo local seguro para generar reflejos sutiles (sin mostrar la imagen de fondo) */}
-      <Environment files="/clouds_puresky_4k.hdr" />
+      <Environment files="/clouds.hdr" />
       
       <ambientLight ref={ambientRef} color={lighting.ambientColor} />
       <directionalLight 
@@ -130,7 +130,7 @@ export default function CinematicLighting({ lighting }) {
         position={[calculatedSunX, calculatedSunY, calculatedSunZ]} 
         color={lighting.sunColor}
         castShadow 
-        shadow-mapSize={[4096, 4096]}
+        shadow-mapSize={[2048, 2048]}
         shadow-camera-left={-40}
         shadow-camera-right={40}
         shadow-camera-top={40}
