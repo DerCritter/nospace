@@ -37,14 +37,14 @@ function PlayerAvatar({ player }) {
     // position={player.position} asegura que si el jugador entra nuevo, no aparezca en [0,0,0] y luego vuele
     // lerp se encarga después
     <group ref={groupRef} position={player.position}>
-      {/* Cuerpo */}
-      <mesh position={[0, 0.9, 0]}>
+      {/* Cuerpo (El centro del RigidBody en Rapier está a 0.8 metros del suelo) */}
+      <mesh position={[0, 0, 0]}>
         <capsuleGeometry args={[0.3, 1, 4, 16]} />
         <meshStandardMaterial color="#00ffcc" roughness={0.2} metalness={0.8} />
       </mesh>
       
       {/* Cabeza */}
-      <group ref={headRef} position={[0, 1.6, 0]}>
+      <group ref={headRef} position={[0, 0.7, 0]}>
         <mesh>
           <sphereGeometry args={[0.25, 16, 16]} />
           <meshStandardMaterial color="white" />
