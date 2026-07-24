@@ -49,22 +49,36 @@ function PlayerAvatar({ player }) {
     // Crossfade (transición suave) entre animaciones reales del modelo 3D
     if (actions) {
       if (isMoving.current) { 
-        if (actions['Walking'] && !actions['Walking'].isRunning()) {
-          actions['Walking'].reset().fadeIn(0.2).play()
-          if (actions['Idle']) actions['Idle'].fadeOut(0.2)
+        // Calculamos la velocidad en base a la distancia recorrida en la red
+        const speed = networkDist / safeDelta
+        const isRunning = speed > 6.5 // El jugador camina a 5, y con shift (sprintMult=1.8) corre a 9
+        
+        if (isRunning && actions['Running']) {
+          if (!actions['Running'].isRunning()) {
+            actions['Running'].reset().fadeIn(0.2).play()
+            if (actions['Walking']) actions['Walking'].fadeOut(0.2)
+            if (actions['Idle']) actions['Idle'].fadeOut(0.2)
+          }
+        } else {
+          if (actions['Walking'] && !actions['Walking'].isRunning()) {
+            actions['Walking'].reset().fadeIn(0.2).play()
+            if (actions['Running']) actions['Running'].fadeOut(0.2)
+            if (actions['Idle']) actions['Idle'].fadeOut(0.2)
+          }
         }
       } else { 
         if (actions['Idle'] && !actions['Idle'].isRunning()) {
           actions['Idle'].reset().fadeIn(0.2).play()
           if (actions['Walking']) actions['Walking'].fadeOut(0.2)
+          if (actions['Running']) actions['Running'].fadeOut(0.2)
         }
       }
     }
 
     // Slerp de Rotación
     const yaw = player.rotation[1]
-    // Giramos el cuerpo en el eje Y
-    const targetBodyQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw)
+    // Giramos el cuerpo en el eje Y (añadimos Math.PI porque el GLB mira hacia +Z por defecto)
+    const targetBodyQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw + Math.PI)
     groupRef.current.quaternion.slerp(targetBodyQuat, safeDelta * 12)
   })
 

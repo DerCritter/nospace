@@ -195,7 +195,7 @@ export default function HUD() {
           
           <div style={{ display: 'flex', gap: '10px', marginTop: '40px' }}>
             <button 
-              onClick={() => alert(`Añadido al carrito: ${art.title}`)}
+              onClick={() => alert(`Added to cart: ${art.title}`)}
               style={{
                 flex: 1,
                 padding: '16px 10px',

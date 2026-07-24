@@ -15,7 +15,7 @@
     "@react-three/fiber": "^9.6.1",
     "@react-three/postprocessing": "^3.0.4",
     "@react-three/rapier": "^2.2.0",
-    "ecctrl": "^2.0.0",
+    "ecctrl": "^1.0.86",
     "leva": "^0.10.1",
     "lucide-react": "^1.26.0",
     "react": "^19.2.7",

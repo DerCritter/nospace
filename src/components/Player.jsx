@@ -2,58 +2,44 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { useState, useEffect, useRef, useMemo } from 'react'
 import * as THREE from 'three'
 import { RigidBody, CapsuleCollider } from '@react-three/rapier'
+import { useGLTF, useAnimations } from '@react-three/drei'
+import { SkeletonUtils } from 'three-stdlib'
 import { useStore } from '../store/useStore'
 import { socket } from './NetworkManager'
 
-function usePlayerControls() {
-  const [movement, setMovement] = useState({ forward: false, backward: false, left: false, right: false, jump: false })
-  
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      const isUp = e.code === 'KeyW' || e.code === 'ArrowUp' || e.key === 'ArrowUp'
-      const isDown = e.code === 'KeyS' || e.code === 'ArrowDown' || e.key === 'ArrowDown'
-      const isLeft = e.code === 'KeyA' || e.code === 'ArrowLeft' || e.key === 'ArrowLeft'
-      const isRight = e.code === 'KeyD' || e.code === 'ArrowRight' || e.key === 'ArrowRight'
-      const isJump = e.code === 'Space' || e.key === ' '
-
-      if (isUp) setMovement(m => ({ ...m, forward: true }))
-      if (isDown) setMovement(m => ({ ...m, backward: true }))
-      if (isLeft) setMovement(m => ({ ...m, left: true }))
-      if (isRight) setMovement(m => ({ ...m, right: true }))
-      if (isJump) setMovement(m => ({ ...m, jump: true }))
-    }
-    const handleKeyUp = (e) => {
-      const isUp = e.code === 'KeyW' || e.code === 'ArrowUp' || e.key === 'ArrowUp'
-      const isDown = e.code === 'KeyS' || e.code === 'ArrowDown' || e.key === 'ArrowDown'
-      const isLeft = e.code === 'KeyA' || e.code === 'ArrowLeft' || e.key === 'ArrowLeft'
-      const isRight = e.code === 'KeyD' || e.code === 'ArrowRight' || e.key === 'ArrowRight'
-      const isJump = e.code === 'Space' || e.key === ' '
-
-      if (isUp) setMovement(m => ({ ...m, forward: false }))
-      if (isDown) setMovement(m => ({ ...m, backward: false }))
-      if (isLeft) setMovement(m => ({ ...m, left: false }))
-      if (isRight) setMovement(m => ({ ...m, right: false }))
-      if (isJump) setMovement(m => ({ ...m, jump: false }))
-    }
-    document.addEventListener('keydown', handleKeyDown)
-    document.addEventListener('keyup', handleKeyUp)
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown)
-      document.removeEventListener('keyup', handleKeyUp)
-    }
-  }, [])
-  
-  return movement
-}
-
+import { useKeyboardControls } from '@react-three/drei'
 export default function Player({ spawnPosition = [0, 2, 0], lighting }) {
-  const { forward, backward, left, right, jump } = usePlayerControls()
+  const [, get] = useKeyboardControls()
   const activeArt = useStore((state) => state.activeArt)
   const rigidBody = useRef()
   const { camera } = useThree()
   const frameCount = useRef(0)
   const SETTLE_FRAMES = 5
   const isFirstFrame = useRef(true)
+  const [thirdPerson, setThirdPerson] = useState(false)
+  
+  // -- LOCAL AVATAR --
+  const avatarRef = useRef()
+  const { scene, animations } = useGLTF('/RobotExpressive.glb')
+  const clone = useMemo(() => SkeletonUtils.clone(scene), [scene])
+  const { actions } = useAnimations(animations, avatarRef)
+  
+  // Start idle animation by default
+  useEffect(() => {
+    if (actions && actions['Idle']) {
+      actions['Idle'].play()
+    }
+  }, [actions])
+  // ------------------
+  
+  // Toggle third-person camera with 'C'
+  useEffect(() => {
+    const handleKey = (e) => {
+      if (e.key.toLowerCase() === 'c') setThirdPerson(p => !p)
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [])
   
   // Ref to always have fresh lighting values in useFrame
   const lightingRef = useRef(lighting)
@@ -120,8 +106,6 @@ export default function Player({ spawnPosition = [0, 2, 0], lighting }) {
   const previousActiveArt = useRef(null)
   const isReturning = useRef(false)
   const lastBroadcastTime = useRef(0)
-
-  const speed = 5
   const { moveDir, cameraDir, cameraRight, dummyCamPos, dummyLookAt } = useMemo(() => ({
     moveDir: new THREE.Vector3(),
     cameraDir: new THREE.Vector3(),
@@ -275,16 +259,24 @@ export default function Player({ spawnPosition = [0, 2, 0], lighting }) {
     }
     state.camera.updateProjectionMatrix()
 
-    // Anchor camera to player head
+    // Anchor camera to player head (or behind head if third person)
     const headPos = new THREE.Vector3(position.x, position.y + 0.8, position.z)
+    let targetCamPos = new THREE.Vector3().copy(headPos)
+    
+    if (thirdPerson) {
+      // Cámara en tercera persona: desplazada hacia atrás (Z=5) y más arriba (Y=1.0)
+      const offset = new THREE.Vector3(0, 1.0, 5)
+      offset.applyEuler(new THREE.Euler(pitch.current, yaw.current, 0, 'YXZ'))
+      targetCamPos.add(offset)
+    }
     
     if (isReturning.current) {
-      const dist = state.camera.position.distanceTo(headPos)
+      const dist = state.camera.position.distanceTo(targetCamPos)
       // Acelerar el lerp al final para evitar la tortuga matemática (Zeno's paradox) y hacer un aterrizaje perfecto
       const returnSpeed = dist < 0.5 ? safeDelta * 6 : safeDelta * 3
       
       // Viaje suave de regreso al cuerpo
-      state.camera.position.lerp(headPos, returnSpeed)
+      state.camera.position.lerp(targetCamPos, returnSpeed)
       
       // Mientas vuela de vuelta, hacemos slerp (interpolación esférica) suavemente 
       // hacia donde el jugador esté apuntando con su ratón. 
@@ -298,7 +290,7 @@ export default function Player({ spawnPosition = [0, 2, 0], lighting }) {
       }
     } else {
       // Modo caminar normal (1:1 instantáneo, inmune a lag spikes)
-      state.camera.position.copy(headPos)
+      state.camera.position.copy(targetCamPos)
       const targetWalkQuat = new THREE.Quaternion().setFromEuler(new THREE.Euler(pitch.current, yaw.current, 0, 'YXZ'))
       state.camera.quaternion.copy(targetWalkQuat)
     }
@@ -314,6 +306,10 @@ export default function Player({ spawnPosition = [0, 2, 0], lighting }) {
     // Bloquear el movimiento WASD mientras la cámara viaja de vuelta al cuerpo.
     // Si no bloqueamos esto, el jugador podría alejarse caminando más rápido de lo que la cámara
     // puede acercarse, dejando la cámara atascada permanentemente en el modo "viaje de vuelta" (isReturning = true).
+    
+    const { forward, backward, left, right, jump, run } = get()
+    const speed = run ? 9 : 5
+    
     if (!isReturning.current) {
       if (forward) moveDir.add(cameraDir)
       if (backward) moveDir.sub(cameraDir)
@@ -323,6 +319,39 @@ export default function Player({ spawnPosition = [0, 2, 0], lighting }) {
     
     if (moveDir.length() > 0) {
       moveDir.normalize().multiplyScalar(speed)
+    }
+    
+    // Animar avatar local
+    if (actions && !isReturning.current && !currentActiveArt) {
+      const isMoving = forward || backward || left || right
+      if (isMoving) {
+        if (run && actions['Running']) {
+          if (!actions['Running'].isRunning()) {
+            actions['Running'].reset().fadeIn(0.2).play()
+            if (actions['Walking']) actions['Walking'].fadeOut(0.2)
+            if (actions['Idle']) actions['Idle'].fadeOut(0.2)
+          }
+        } else {
+          if (actions['Walking'] && !actions['Walking'].isRunning()) {
+            actions['Walking'].reset().fadeIn(0.2).play()
+            if (actions['Running']) actions['Running'].fadeOut(0.2)
+            if (actions['Idle']) actions['Idle'].fadeOut(0.2)
+          }
+        }
+      } else {
+        if (actions['Idle'] && !actions['Idle'].isRunning()) {
+          actions['Idle'].reset().fadeIn(0.2).play()
+          if (actions['Walking']) actions['Walking'].fadeOut(0.2)
+          if (actions['Running']) actions['Running'].fadeOut(0.2)
+        }
+      }
+    }
+    
+    // Rotar avatar local en base a la cámara
+    if (avatarRef.current && !isReturning.current && !currentActiveArt) {
+      // Si el avatar tiene su propia orientación diferente a la del cuerpo rígido.
+      // Pero como el cuerpo rígido NO rota (enabledRotations = false), el mesh hijo rota visualmente.
+      avatarRef.current.rotation.y = yaw.current + Math.PI
     }
     
     const linvel = rigidBody.current.linvel()
@@ -351,7 +380,12 @@ export default function Player({ spawnPosition = [0, 2, 0], lighting }) {
       position={spawnPosition} 
       enabledRotations={[false, false, false]} 
     >
-      <CapsuleCollider args={[0.5, 0.3]} />
+      <CapsuleCollider args={[0.5, 0.3]} friction={0} />
+      
+      {/* Mesh visual del jugador (solo se renderiza visible en 3ra persona) */}
+      <group ref={avatarRef} visible={thirdPerson}>
+        <primitive object={clone} position={[0, -0.8, 0]} scale={0.4} />
+      </group>
     </RigidBody>
   )
 }

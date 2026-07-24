@@ -161,3 +161,43 @@ body, html, #root {
   backdrop-filter: blur(8px);
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
+
+/* === JOYSTICK & MOBILE ORIENTATION === */
+.joystick-container {
+  display: none; /* Oculto por defecto en escritorio */
+}
+
+@media (pointer: coarse) {
+  .joystick-container {
+    display: block; /* Visible en pantallas táctiles */
+  }
+}
+
+.portrait-warning {
+  display: none;
+  position: fixed;
+  top: 0; 
+  left: 0; 
+  width: 100vw; 
+  height: 100vh;
+  background: #111;
+  color: white;
+  z-index: 99999;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  text-align: center;
+  font-family: 'Inter', sans-serif;
+  font-size: 1.2rem;
+  padding: 2rem;
+}
+
+/* Solo mostrar la advertencia si es táctil y está en vertical */
+@media (pointer: coarse) and (orientation: portrait) {
+  .portrait-warning {
+    display: flex;
+  }
+  .joystick-container {
+    display: none; /* Ocultar joystick mientras esté en vertical */
+  }
+}
