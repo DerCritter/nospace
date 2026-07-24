@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import * as THREE from 'three'
 import { RigidBody, CapsuleCollider } from '@react-three/rapier'
 import { useStore } from '../store/useStore'
+import { socket } from './NetworkManager'
 
 function usePlayerControls() {
   const [movement, setMovement] = useState({ forward: false, backward: false, left: false, right: false, jump: false })
@@ -118,6 +119,7 @@ export default function Player({ spawnPosition = [0, 2, 0], lighting }) {
   // Track previous state to detect exact frame of transition
   const previousActiveArt = useRef(null)
   const isReturning = useRef(false)
+  const lastBroadcastTime = useRef(0)
 
   const speed = 5
   const { moveDir, cameraDir, cameraRight, dummyCamPos, dummyLookAt } = useMemo(() => ({
@@ -328,6 +330,15 @@ export default function Player({ spawnPosition = [0, 2, 0], lighting }) {
     
     if (jump && Math.abs(linvel.y) < 0.1) {
       rigidBody.current.setLinvel({ x: linvel.x, y: 5, z: linvel.z }, true)
+    }
+    
+    // MULTIPLAYER BROADCAST (15 times per second to save bandwidth)
+    if (socket && state.clock.elapsedTime - lastBroadcastTime.current > 1 / 15) {
+      socket.emit('playerMove', {
+        position: [position.x, position.y, position.z],
+        rotation: [pitch.current, yaw.current, 0]
+      })
+      lastBroadcastTime.current = state.clock.elapsedTime
     }
   })
 

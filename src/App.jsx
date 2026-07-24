@@ -9,6 +9,8 @@ import { useThree } from '@react-three/fiber'
 import Gallery from './components/Gallery'
 import CinematicLighting from './components/CinematicLighting'
 import HUD from './components/HUD'
+import NetworkManager from './components/NetworkManager'
+import OtherPlayers from './components/OtherPlayers'
 import { useStore } from './store/useStore'
 import { useControls, Leva, button, folder } from 'leva'
 
@@ -138,11 +140,13 @@ function App() {
       
       <div id="canvas-container" style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, zIndex: 0 }}>
         <Canvas shadows camera={CAMERA_CONFIG}>
+          <NetworkManager />
           <CinematicLighting lighting={lighting} />
           <Suspense fallback={null}>
             <Physics>
               <Gallery lighting={lighting} />
             </Physics>
+            <OtherPlayers />
           </Suspense>
           <PostProcessing lighting={lighting} />
         </Canvas>
