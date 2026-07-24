@@ -82,12 +82,12 @@ function App() {
   const [savedConfig] = useState(() => JSON.parse(localStorage.getItem('gallery-lighting') || '{}'))
 
   const lighting = useControls('Ajustes Visuales', {
-    ambient: { value: savedConfig.ambient ?? 1.35, min: 0, max: 2, step: 0.05, label: 'Luz Ambiente' },
+    ambient: { value: savedConfig.ambient ?? 0.95, min: 0, max: 2, step: 0.05, label: 'Luz Ambiente' },
     ambientColor: { value: savedConfig.ambientColor ?? '#ffd9bb', label: 'Color Amb.' },
     skyIntensity: { value: savedConfig.skyIntensity ?? 0.5, min: 0, max: 5, step: 0.1, label: 'Fuerza HDRI' },
-    skyColorTop: { value: savedConfig.skyColorTop ?? '#0a011d', label: 'Cielo (Arriba)' },
+    skyColorTop: { value: savedConfig.skyColorTop ?? '#1a2138', label: 'Cielo (Arriba)' },
     skyColorBottom: { value: savedConfig.skyColorBottom ?? '#000000', label: 'Cielo (Horizonte)' },
-    skyBrightness: { value: savedConfig.skyBrightness ?? 2.5, min: 0, max: 5, step: 0.1, label: 'Brillo Cielo' },
+    skyBrightness: { value: savedConfig.skyBrightness ?? 2.6, min: 0, max: 5, step: 0.1, label: 'Brillo Cielo' },
     starCount: { value: savedConfig.starCount ?? 6300, min: 100, max: 20000, step: 100, label: 'Cant. Estrellas' },
     starFactor: { value: savedConfig.starFactor ?? 3.8, min: 0.1, max: 10, step: 0.1, label: 'Tam. Estrellas' },
     starSpeed: { value: savedConfig.starSpeed ?? 7.9, min: 0, max: 10, step: 0.1, label: 'Veloc. Estrellas' },
@@ -99,8 +99,8 @@ function App() {
     spotColor: { value: savedConfig.spotColor ?? '#f8eede', label: 'Color Foco' },
     spotAngle: { value: savedConfig.spotAngle ?? 0.6, min: 0.1, max: 1.5, step: 0.05, label: 'Apertura Foco' },
     spotPenumbra: { value: savedConfig.spotPenumbra ?? 0.25, min: 0, max: 1, step: 0.05, label: 'Suavidad Foco' },
-    bloomIntensity: { value: savedConfig.bloomIntensity ?? 0.8, min: 0, max: 5, step: 0.1, label: 'Fuerza Bloom' },
-    bloomThreshold: { value: savedConfig.bloomThreshold ?? 0.8, min: 0, max: 2, step: 0.05, label: 'Límite Bloom' },
+    bloomIntensity: { value: savedConfig.bloomIntensity ?? 1.3, min: 0, max: 5, step: 0.1, label: 'Fuerza Bloom' },
+    bloomThreshold: { value: savedConfig.bloomThreshold ?? 0.6, min: 0, max: 2, step: 0.05, label: 'Límite Bloom' },
     'Agua': folder({
       waterColor: { value: savedConfig.waterColor ?? '#e7f3ff', label: 'Color Agua' },
       waterSpeed: { value: savedConfig.waterSpeed ?? 3.6, min: 0, max: 5, step: 0.1, label: 'Velocidad' },
