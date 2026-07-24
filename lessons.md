@@ -40,3 +40,12 @@ Esto garantiza ángulos matemáticamente puros dentro de los límites humanos.
 **Solución:** 
 1. **Tracking dinámico:** Durante todo el viaje de vuelta, la cámara debe aplicar `lookAt(sujeto)` continuamente, y solo al tocar el cuerpo del jugador debe extraer los ángulos Yaw/Pitch finales para entregarle el mando.
 2. **Acelerador de Lerp:** Reducir el umbral de corte a proporciones microscópicas (5 milímetros) pero duplicar la velocidad de interpolación (ej. de `x3` a `x6`) cuando la cámara entra en el último medio metro. Esto rompe la paradoja matemática y asegura un aterrizaje veloz e imperceptible.
+
+## 8. Peligros Ocultos de `SphereGeometry` y Clipping
+**Problema:** Declarar `<sphereGeometry args={[32, 32]} />` en Three.js asigna un radio base de 32 (los argumentos son `[radio, segmentosAncho, segmentosAlto]`). Al aplicarle un `scale={1500}`, la esfera resultante tiene un radio masivo de 48,000 unidades.
+**Consecuencia:** Si el `camera.far` de la escena es de 3000 unidades, la esfera queda 100% cortada por el plano de renderizado (Clipping Plane) y se vuelve completamente invisible, dejando al descubierto el color de fondo HTML y causando horas de debug erróneo sobre materiales y shaders.
+**Solución:** Siempre declarar el radio explícitamente en geometrías base que van a ser escaladas brutalmente: `<sphereGeometry args={[1, 32, 32]} />` para que el `scale` sea 1:1 con las unidades del mundo.
+
+## 9. Reflection Probes (HDRI Dinámico) Eficientes
+**Problema:** Usar un `CubeCamera` para generar un mapa de entorno dinámico (HDRI) a tiempo real dispara 6 renders de la escena por fotograma, destruyendo los FPS en navegadores y gráficas modestas.
+**Solución:** Extraer el control del `CubeCamera` del render loop constante. Utilizar un sistema de caché de variables lumínicas (`lastProbeUpdate`) en el `useFrame` para detectar exactamente si el usuario modificó algún color o posición del sol. Si detecta un cambio, dispara la toma fotográfica esférica 1 única vez, y luego apaga la cámara, garantizando que el coste de rendimiento al caminar por la sala sea 0 absoluto mientras se disfrutan reflejos 100% precisos en los materiales metálicos.

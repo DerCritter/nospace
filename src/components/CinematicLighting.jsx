@@ -9,7 +9,25 @@ export default function CinematicLighting({ lighting }) {
   const dirRef = useRef()
   const spotRef = useRef()
   const spotTargetRef = useRef()
-  const { scene } = useThree()
+  const skyMatRef = useRef()
+  const { scene, gl } = useThree()
+
+  // === REFLECTION PROBE (HDRI DINÁMICO) ===
+  const cubeRenderTarget = useMemo(() => new THREE.WebGLCubeRenderTarget(256, {
+    format: THREE.RGBAFormat,
+    generateMipmaps: true,
+    minFilter: THREE.LinearMipmapLinearFilter,
+  }), [])
+  
+  const cubeCamera = useMemo(() => new THREE.CubeCamera(0.1, 3000, cubeRenderTarget), [cubeRenderTarget])
+  
+  useEffect(() => {
+    scene.environment = cubeRenderTarget.texture
+    return () => { scene.environment = null }
+  }, [scene, cubeRenderTarget])
+
+  // Rastreador de cambios para no renderizar las 6 cámaras en cada frame (optimización extrema)
+  const lastProbeUpdate = useRef(null)
 
   // Eliminamos scene.background manual porque ahora usamos una esfera de gradiente en el JSX
 
@@ -40,9 +58,6 @@ export default function CinematicLighting({ lighting }) {
     if (scene.environmentIntensity !== undefined) scene.environmentIntensity = lighting.skyIntensity
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Memoize Environment so it never re-renders and never resets scene.environmentIntensity to 1
-  const staticEnvironment = useMemo(() => <Environment files="/clouds.hdr" />, [])
-
   useFrame((state, delta) => {
     // Clamp delta to max 50ms to prevent lerp jumps on frame drops
     const safeDelta = Math.min(delta, 0.05)
@@ -66,6 +81,29 @@ export default function CinematicLighting({ lighting }) {
       scene.environmentIntensity = THREE.MathUtils.lerp(
         scene.environmentIntensity, lit.skyIntensity * targetDim, safeDelta * 0.8
       )
+    }
+
+    // Actualizar los colores del cielo directamente en la memoria de la tarjeta gráfica
+    // Esto evita cualquier bug de HMR o reconciliación de React
+    if (skyMatRef.current) {
+      skyMatRef.current.uniforms.colorTop.value.set(lit.skyColorTop)
+      skyMatRef.current.uniforms.colorBottom.value.set(lit.skyColorBottom)
+      skyMatRef.current.uniforms.brightness.value = lit.skyBrightness
+    }
+
+    // Actualizar el Reflection Probe SOLO si ha cambiado algo de la luz o el cielo
+    // Esto mantiene los FPS intactos al caminar, pero actualiza el HDRI al mover los sliders
+    const currentLightingState = `${lit.skyColorTop}-${lit.skyColorBottom}-${lit.skyBrightness}-${lit.sunColor}-${lit.sunElevation}-${lit.sunAzimuth}`
+    if (lastProbeUpdate.current !== currentLightingState) {
+      // Esconder el environment global temporalmente para evitar que se grabe a sí mismo (feedback loop)
+      const oldEnv = scene.environment
+      scene.environment = null
+      
+      cubeCamera.position.set(0, 2, 0)
+      cubeCamera.update(gl, scene)
+      
+      scene.environment = oldEnv
+      lastProbeUpdate.current = currentLightingState
     }
 
     // Spotlight teatral
@@ -98,39 +136,73 @@ export default function CinematicLighting({ lighting }) {
   const sunDistance = 50 // Distancia fija para las sombras
   const phi = THREE.MathUtils.degToRad(90 - lighting.sunElevation)
   const theta = THREE.MathUtils.degToRad(lighting.sunAzimuth)
+  
+  // Posición para la luz direccional
   const calculatedSunX = sunDistance * Math.sin(phi) * Math.cos(theta)
   const calculatedSunY = sunDistance * Math.cos(phi)
   const calculatedSunZ = sunDistance * Math.sin(phi) * Math.sin(theta)
 
+  // Posición visual para la Luna (muy lejos, detrás de la galería pero delante de las estrellas)
+  const moonDistance = 900
+  const moonX = moonDistance * Math.sin(phi) * Math.cos(theta)
+  const moonY = moonDistance * Math.cos(phi)
+  const moonZ = moonDistance * Math.sin(phi) * Math.sin(theta)
+
   // JSX: NO intensity props on lights — useFrame controls them exclusively
+  
+  const skyUniforms = useMemo(() => ({
+    colorTop: { value: new THREE.Color('#765e5e') },
+    colorBottom: { value: new THREE.Color('#ffd1d1') },
+    brightness: { value: 1.0 }
+  }), [])
+
   return (
     <>
-      {/* Fondo Gradiente */}
-      <mesh scale={200}>
-        <sphereGeometry args={[32, 32]} />
-        <meshBasicMaterial side={THREE.BackSide} toneMapped={false} fog={false}>
-          <GradientTexture
-            attach="map"
-            stops={[0, 1]}
-            colors={[lighting.skyColorTop, lighting.skyColorBottom]}
-            size={1024}
-          />
-        </meshBasicMaterial>
+      {/* Fondo Gradiente (Escala gigante) */}
+      <mesh scale={1500}>
+        <sphereGeometry args={[1, 32, 32]} />
+        <shaderMaterial 
+          ref={skyMatRef}
+          side={THREE.BackSide} 
+          depthWrite={false}
+          toneMapped={false}
+          uniforms={skyUniforms}
+          vertexShader={`
+            varying vec2 vUv;
+            void main() {
+              vUv = uv;
+              gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+          `}
+          fragmentShader={`
+            uniform vec3 colorTop;
+            uniform vec3 colorBottom;
+            uniform float brightness;
+            varying vec2 vUv;
+            void main() {
+              vec3 finalColor = mix(colorBottom, colorTop, vUv.y);
+              gl_FragColor = vec4(finalColor * brightness, 1.0);
+            }
+          `}
+        />
+      </mesh>
+
+      {/* La Luna Visual */}
+      <mesh position={[moonX, moonY, moonZ]}>
+        <sphereGeometry args={[25, 32, 32]} />
+        <meshBasicMaterial color={lighting.sunColor} toneMapped={false} />
       </mesh>
 
       {/* Estrellas procedurales súper nítidas generadas matemáticamente */}
       <Stars 
-        radius={100} 
-        depth={50} 
+        radius={1000} 
+        depth={200} 
         count={lighting.starCount} 
-        factor={lighting.starFactor} 
+        factor={lighting.starFactor * 10} 
         saturation={0} 
         fade 
         speed={lighting.starSpeed} 
       />
-      
-      {/* El Environment usa un archivo local seguro para generar reflejos sutiles. Memoizado para evitar parpadeos. */}
-      {staticEnvironment}
       
       <ambientLight ref={ambientRef} color={lighting.ambientColor} />
       <directionalLight 

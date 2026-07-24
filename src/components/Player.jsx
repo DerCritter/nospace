@@ -131,6 +131,12 @@ export default function Player({ spawnPosition = [0, 2, 0], lighting }) {
   useFrame((state, delta) => {
     if (!rigidBody.current) return
 
+    // HACK: Force camera far plane update for HMR (Vite doesn't hot-reload Canvas camera props)
+    if (state.camera.far !== 3000) {
+      state.camera.far = 3000
+      state.camera.updateProjectionMatrix()
+    }
+
     // Clamp delta to prevent massive jumps on lag spikes (max 50ms per frame for physics/lerp)
     const safeDelta = Math.min(delta, 0.05)
     

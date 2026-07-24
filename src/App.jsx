@@ -35,7 +35,7 @@ function PostProcessing({ lighting }) {
     <EffectComposer disableNormalPass>
       <Bloom 
         luminanceThreshold={lighting.bloomThreshold} 
-        mipmapBlur 
+        radius={0.6}
         intensity={lighting.bloomIntensity} 
       />
       <DepthOfField
@@ -98,7 +98,7 @@ function App() {
     spotAngle: { value: savedConfig.spotAngle ?? 0.6, min: 0.1, max: 1.5, step: 0.05, label: 'Apertura Foco' },
     spotPenumbra: { value: savedConfig.spotPenumbra ?? 0.8, min: 0, max: 1, step: 0.05, label: 'Suavidad Foco' },
     bloomIntensity: { value: savedConfig.bloomIntensity ?? 0.5, min: 0, max: 5, step: 0.1, label: 'Fuerza Bloom' },
-    bloomThreshold: { value: savedConfig.bloomThreshold ?? 1.0, min: 0, max: 2, step: 0.05, label: 'Límite Bloom' },
+    bloomThreshold: { value: savedConfig.bloomThreshold ?? 1.5, min: 0, max: 2, step: 0.05, label: 'Límite Bloom' },
     'Agua': folder({
       waterColor: { value: savedConfig.waterColor ?? '#e7f3ff', label: 'Color Agua' },
       waterSpeed: { value: savedConfig.waterSpeed ?? 1.3, min: 0, max: 5, step: 0.1, label: 'Velocidad' },
