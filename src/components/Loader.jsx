@@ -6,9 +6,10 @@ export default function Loader() {
   const [visible, setVisible] = useState(true)
 
   useEffect(() => {
-    // Si ya no está cargando y el progreso es 100%, ocultar tras un breve delay para que la transición sea suave
+    // Si ya no está cargando y el progreso es 100%, ocultar tras un delay más largo (4500ms)
+    // para dar tiempo a que los shaders de WebGL compilen y el motor de físicas estabilice.
     if (!active && progress === 100) {
-      const t = setTimeout(() => setVisible(false), 800)
+      const t = setTimeout(() => setVisible(false), 4500)
       return () => clearTimeout(t)
     }
   }, [active, progress])

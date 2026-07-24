@@ -10,7 +10,7 @@ import Gallery from './components/Gallery'
 import CinematicLighting from './components/CinematicLighting'
 import HUD from './components/HUD'
 import { useStore } from './store/useStore'
-import { useControls, Leva, button } from 'leva'
+import { useControls, Leva, button, folder } from 'leva'
 
 function DynamicBackground({ colorHex }) {
   const { scene } = useThree()
@@ -22,10 +22,61 @@ function DynamicBackground({ colorHex }) {
 
 import Loader from './components/Loader'
 
-function App() {
-  const activeArt = useStore((state) => state.activeArt)
+const CAMERA_CONFIG = { 
+  position: [0, 1.6, 4], 
+  fov: 45,
+  near: 0.1,
+  far: 2000
+}
 
-  // 1. Cargar configuración guardada (si existe) del LocalStorage SOLO al inicializar
+function PostProcessing({ lighting }) {
+  const activeArt = useStore((state) => state.activeArt)
+  return (
+    <EffectComposer disableNormalPass>
+      <Bloom 
+        luminanceThreshold={lighting.bloomThreshold} 
+        mipmapBlur 
+        intensity={lighting.bloomIntensity} 
+      />
+      <DepthOfField
+        target={activeArt 
+          ? [
+              activeArt.position[0] + (lighting.camLookAtX ?? 0.8), 
+              activeArt.position[1] + (lighting.camOffsetY ?? 1.6), 
+              activeArt.position[2]
+            ]
+          : [0, 0, 0]
+        }
+        focalLength={activeArt ? lighting.dofFocalLength : 0}
+        bokehScale={activeArt ? lighting.dofBokehScale : 0}
+        height={480}
+      />
+    </EffectComposer>
+  )
+}
+
+function LevaContainer() {
+  const [levaHidden, setLevaHidden] = useState(true)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
+      if (e.key.toLowerCase() === 't') {
+        setLevaHidden(prev => !prev)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
+  return (
+    <Leva 
+      hidden={levaHidden} 
+      theme={{ sizes: { rootWidth: '350px', controlWidth: '160px' }, colors: { highlight1: '#ffffff', highlight2: '#444444', elevation2: '#1a1a1a', elevation3: '#2a2a2a' } }} 
+    />
+  )
+}
+
+function App() {
   const [savedConfig] = useState(() => JSON.parse(localStorage.getItem('gallery-lighting') || '{}'))
 
   const lighting = useControls('Ajustes Visuales', {
@@ -48,9 +99,12 @@ function App() {
     spotPenumbra: { value: savedConfig.spotPenumbra ?? 0.8, min: 0, max: 1, step: 0.05, label: 'Suavidad Foco' },
     bloomIntensity: { value: savedConfig.bloomIntensity ?? 0.5, min: 0, max: 5, step: 0.1, label: 'Fuerza Bloom' },
     bloomThreshold: { value: savedConfig.bloomThreshold ?? 1.0, min: 0, max: 2, step: 0.05, label: 'Límite Bloom' },
-    waterColor: { value: savedConfig.waterColor ?? '#e7f3ff', label: 'Color Agua' },
-    waterSpeed: { value: savedConfig.waterSpeed ?? 1.3, min: 0, max: 2, step: 0.1, label: 'Velocidad Agua' },
-    waterDistortion: { value: savedConfig.waterDistortion ?? 2.1, min: 0, max: 10, step: 0.1, label: 'Olas Agua' },
+    'Agua': folder({
+      waterColor: { value: savedConfig.waterColor ?? '#e7f3ff', label: 'Color Agua' },
+      waterSpeed: { value: savedConfig.waterSpeed ?? 1.3, min: 0, max: 5, step: 0.1, label: 'Velocidad' },
+      waterDistortion: { value: savedConfig.waterDistortion ?? 2.1, min: 0, max: 10, step: 0.1, label: 'Fuerza Olas' },
+      waterSize: { value: savedConfig.waterSize ?? 200, min: 1, max: 1000, step: 1, label: 'Densidad Olas' },
+    }),
     camOffsetX: { value: savedConfig.camOffsetX ?? -5, min: -5, max: 5, step: 0.1, label: 'Cámara X' },
     camOffsetY: { value: savedConfig.camOffsetY ?? 0, min: 0, max: 5, step: 0.1, label: 'Cámara Y' },
     camOffsetZ: { value: savedConfig.camOffsetZ ?? 5, min: -5, max: 5, step: 0.1, label: 'Cámara Z' },
@@ -63,78 +117,34 @@ function App() {
       const data = localStorage.getItem('gallery-lighting')
       navigator.clipboard.writeText(data)
       console.log('Ajustes exportados:', JSON.parse(data))
-      alert('¡Configuración copiada al portapapeles! Puedes pegarla en tus notas o enviármela por el chat para fijarla como la configuración por defecto.')
+      alert('¡Configuración copiada al portapapeles!')
     })
   })
 
-  // 3. Guardar automáticamente cada vez que el usuario mueva un control
   useEffect(() => {
     localStorage.setItem('gallery-lighting', JSON.stringify(lighting))
   }, [lighting])
 
-  // 4. Atajo de teclado "T" para ocultar/mostrar el panel de herramientas
-  const [levaHidden, setLevaHidden] = useState(true)
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      // Evitar que se active si el usuario está escribiendo en algún input dentro del panel
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
-      
-      if (e.key.toLowerCase() === 't') {
-        setLevaHidden(prev => !prev)
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [])
+
 
   return (
     <>
       <Loader />
-      {/* Panel de control de gráficos (Flotante) */}
-      <Leva hidden={levaHidden} theme={{ sizes: { rootWidth: '350px', controlWidth: '160px' }, colors: { highlight1: '#ffffff', highlight2: '#444444', elevation2: '#1a1a1a', elevation3: '#2a2a2a' } }} />
-
-      {/* HUD 2D OVERLAY (Panel Lateral de Inspección) */}
+      <LevaContainer />
       <HUD />
-
       <div className="instructions">
         Haz clic para caminar • ESC para ajustar los gráficos • W A S D para moverte
       </div>
       
       <div id="canvas-container" style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, zIndex: 0 }}>
-        <Canvas shadows camera={{ position: [0, 1.6, 5], fov: 60 }}>
-          
-          {/* Iluminación Dinámica controlada por Leva y animada por clicks */}
+        <Canvas shadows camera={CAMERA_CONFIG}>
           <CinematicLighting lighting={lighting} />
-          
           <Suspense fallback={null}>
             <Physics>
               <Gallery lighting={lighting} />
             </Physics>
           </Suspense>
-
-          {/* Post-Procesado: Efectos Cinematográficos controlados por Leva */}
-          <EffectComposer disableNormalPass>
-            <Bloom 
-              luminanceThreshold={lighting.bloomThreshold} 
-              mipmapBlur 
-              intensity={lighting.bloomIntensity} 
-            />
-            {/* DOF siempre montado (desmontar crashea el pipeline de postprocessing).
-                Se desactiva poniendo bokehScale a 0 cuando no hay obra seleccionada. */}
-            <DepthOfField
-              target={activeArt 
-                ? [
-                    activeArt.position[0] + (lighting.camLookAtX ?? 0.8), 
-                    activeArt.position[1] + (lighting.camOffsetY ?? 1.6), 
-                    activeArt.position[2]
-                  ]
-                : [0, 0, 0]
-              }
-              focalLength={activeArt ? lighting.dofFocalLength : 0}
-              bokehScale={activeArt ? lighting.dofBokehScale : 0}
-              height={480}
-            />
-          </EffectComposer>
+          <PostProcessing lighting={lighting} />
         </Canvas>
       </div>
     </>

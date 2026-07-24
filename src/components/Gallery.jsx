@@ -11,7 +11,26 @@ export default function Gallery({ lighting }) {
   
   let spawnPos = [0, 2, 0]
   if (nodes.SpawnPoint) {
-    spawnPos = [nodes.SpawnPoint.position.x, nodes.SpawnPoint.position.y + 2, nodes.SpawnPoint.position.z]
+    // Asegurar que las matrices del mundo estén actualizadas para el raycast
+    scene.updateMatrixWorld(true)
+    
+    const raycaster = new THREE.Raycaster(
+      new THREE.Vector3(nodes.SpawnPoint.position.x, nodes.SpawnPoint.position.y + 10, nodes.SpawnPoint.position.z),
+      new THREE.Vector3(0, -1, 0)
+    )
+    
+    // Solo intersectar con mallas visibles para no chocar con empties o triggers
+    const meshes = []
+    scene.traverse(c => { if (c.isMesh) meshes.push(c) })
+    const intersects = raycaster.intersectObjects(meshes, false)
+    
+    let floorY = nodes.SpawnPoint.position.y
+    if (intersects.length > 0) {
+      floorY = intersects[0].point.y
+    }
+    
+    // El centro de la cápsula (0.8m) debe estar exactamente a 0.8m sobre el suelo detectado
+    spawnPos = [nodes.SpawnPoint.position.x, floorY + 0.801, nodes.SpawnPoint.position.z]
   }
 
   const { emptyNodes, waterNode } = useMemo(() => {
@@ -78,16 +97,29 @@ export default function Gallery({ lighting }) {
       if (!child.isMesh || !child.material) return
       const materials = Array.isArray(child.material) ? child.material : [child.material]
       materials.forEach((mat) => {
-        const textureKeys = [
-          'map', 'normalMap', 'roughnessMap', 'metalnessMap',
-          'aoMap', 'emissiveMap', 'specularMap', 'specularColorMap'
-        ]
-        textureKeys.forEach((key) => {
+        // --- LIMPIEZA DRÁSTICA (A PETICIÓN DEL USUARIO) ---
+        // Mantener SOLO diffuse (map), normal y roughness.
+        // Las texturas metálicas y de rugosidad en glTF vienen empaquetadas en la MISMA imagen.
+        // NO podemos borrar metalnessMap sin destruir también roughnessMap.
+        const forbiddenMaps = ['aoMap', 'emissiveMap', 'specularMap', 'specularColorMap', 'clearcoatMap']
+        forbiddenMaps.forEach(key => {
+          if (mat[key]) {
+            mat[key].dispose()
+            mat[key] = null
+          }
+        })
+        mat.needsUpdate = true
+
+        // Procesar solo los mapas permitidos para hacerles downsample a 1024.
+        // NUNCA hacer downsample de 'normalMap' por Canvas, porque el canvas destruye los vectores RGB y crea glitches horribles.
+        const allowedMaps = ['map', 'roughnessMap', 'metalnessMap']
+        allowedMaps.forEach((key) => {
           const tex = mat[key]
           if (!tex || !tex.image || processed.has(tex.uuid)) return
           processed.add(tex.uuid)
           const img = tex.image
           if (img.width <= maxSize && img.height <= maxSize) return
+          
           // Redibujar la imagen a menor resolución con canvas offscreen
           const canvas = document.createElement('canvas')
           const aspect = img.width / img.height

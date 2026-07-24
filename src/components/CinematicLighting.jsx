@@ -1,6 +1,6 @@
 import { useFrame, useThree } from '@react-three/fiber'
 import { Environment, Stars, GradientTexture } from '@react-three/drei'
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import { useStore } from '../store/useStore'
 
@@ -36,29 +36,35 @@ export default function CinematicLighting({ lighting }) {
   useEffect(() => {
     if (ambientRef.current) ambientRef.current.intensity = lighting.ambient
     if (dirRef.current) dirRef.current.intensity = lighting.sun
+    if (spotRef.current) spotRef.current.intensity = 0
     if (scene.environmentIntensity !== undefined) scene.environmentIntensity = lighting.skyIntensity
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Memoize Environment so it never re-renders and never resets scene.environmentIntensity to 1
+  const staticEnvironment = useMemo(() => <Environment files="/clouds.hdr" />, [])
+
   useFrame((state, delta) => {
+    // Clamp delta to max 50ms to prevent lerp jumps on frame drops
+    const safeDelta = Math.min(delta, 0.05)
     const activeArt = activeArtRef.current
     const lit = baseLightingRef.current
     const targetDim = activeArt ? 0.05 : 1.0
     
     if (ambientRef.current) {
       ambientRef.current.intensity = THREE.MathUtils.lerp(
-        ambientRef.current.intensity, lit.ambient * targetDim, delta * 4
+        ambientRef.current.intensity, lit.ambient * targetDim, safeDelta * 0.8
       )
     }
     
     if (dirRef.current) {
       dirRef.current.intensity = THREE.MathUtils.lerp(
-        dirRef.current.intensity, lit.sun * targetDim, delta * 4
+        dirRef.current.intensity, lit.sun * targetDim, safeDelta * 0.8
       )
     }
     
     if (scene.environmentIntensity !== undefined) {
       scene.environmentIntensity = THREE.MathUtils.lerp(
-        scene.environmentIntensity, lit.skyIntensity * targetDim, delta * 4
+        scene.environmentIntensity, lit.skyIntensity * targetDim, safeDelta * 0.8
       )
     }
 
@@ -66,7 +72,7 @@ export default function CinematicLighting({ lighting }) {
     if (spotRef.current && spotTargetRef.current) {
       const targetSpotIntensity = activeArt ? lit.spotIntensity : 0.0
       spotRef.current.intensity = THREE.MathUtils.lerp(
-        spotRef.current.intensity, targetSpotIntensity, delta * 5
+        spotRef.current.intensity, targetSpotIntensity, safeDelta * 1.2
       )
       
       if (activeArt && activeArt.position) {
@@ -74,12 +80,14 @@ export default function CinematicLighting({ lighting }) {
         const ty = activeArt.position[1] + 3.5
         const tz = activeArt.position[2] + 2.0
         
-        spotRef.current.position.lerp(new THREE.Vector3(tx, ty, tz), delta * 5)
-        
-        spotTargetRef.current.position.lerp(
-          new THREE.Vector3(activeArt.position[0], activeArt.position[1] + 0.5, activeArt.position[2]),
-          delta * 5
+        // Mover el foco de luz instantáneamente para evitar que el rayo barra la habitación y cause un "flashazo"
+        spotRef.current.position.set(tx, ty, tz)
+        spotTargetRef.current.position.set(
+          activeArt.position[0], 
+          activeArt.position[1] + 0.5, 
+          activeArt.position[2]
         )
+        
         spotRef.current.target = spotTargetRef.current
         spotTargetRef.current.updateMatrixWorld()
       }
@@ -121,8 +129,8 @@ export default function CinematicLighting({ lighting }) {
         speed={lighting.starSpeed} 
       />
       
-      {/* El Environment usa un archivo local seguro para generar reflejos sutiles (sin mostrar la imagen de fondo) */}
-      <Environment files="/clouds.hdr" />
+      {/* El Environment usa un archivo local seguro para generar reflejos sutiles. Memoizado para evitar parpadeos. */}
+      {staticEnvironment}
       
       <ambientLight ref={ambientRef} color={lighting.ambientColor} />
       <directionalLight 
@@ -137,7 +145,8 @@ export default function CinematicLighting({ lighting }) {
         shadow-camera-bottom={-40}
         shadow-camera-near={0.1}
         shadow-camera-far={200}
-        shadow-bias={-0.0005}
+        shadow-bias={-0.0001}
+        shadow-normalBias={0.2}
       />
       
       {/* Real ThreeJS spotlight (white light, no volumetric sprite) */}
@@ -149,7 +158,9 @@ export default function CinematicLighting({ lighting }) {
         penumbra={lighting.spotPenumbra}
         decay={2}
         castShadow
-        intensity={0}
+        shadow-mapSize={[2048, 2048]}
+        shadow-bias={-0.0001}
+        shadow-normalBias={0.2}
       />
       <object3D ref={spotTargetRef} />
     </>

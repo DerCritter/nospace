@@ -1,19 +1,53 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useStore } from '../store/useStore'
 
 export default function HUD() {
   const activeArt = useStore((state) => state.activeArt)
   const setActiveArt = useStore((state) => state.setActiveArt)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
+  
+  // Delayed visibility: panel stays mounted during fade-out
+  const [mounted, setMounted] = useState(false)
+  const [fadeIn, setFadeIn] = useState(false)
+  const unmountTimer = useRef(null)
 
   useEffect(() => {
-    setCurrentImageIndex(0)
-    if (!activeArt || !activeArt.images || activeArt.images.length <= 1) return
+    if (activeArt) {
+      // Cancel any pending unmount
+      if (unmountTimer.current) clearTimeout(unmountTimer.current)
+      setCurrentImageIndex(0)
+      setMounted(true)
+      // Trigger fade-in on next frame so CSS transition fires
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => setFadeIn(true))
+      })
+    } else {
+      // Start fade-out
+      setFadeIn(false)
+      // Unmount after fade-out completes
+      unmountTimer.current = setTimeout(() => setMounted(false), 700)
+    }
+    return () => {
+      if (unmountTimer.current) clearTimeout(unmountTimer.current)
+    }
+  }, [activeArt])
+
+  // Get the art data to display (use activeArt when available, keep last one during fade-out)
+  const displayData = useRef(null)
+  if (activeArt) displayData.current = activeArt
+
+  useEffect(() => {
+    if (!displayData.current?.images || displayData.current.images.length <= 1) return
     const interval = setInterval(() => {
-      setCurrentImageIndex((prev) => (prev < activeArt.images.length - 1 ? prev + 1 : 0))
+      setCurrentImageIndex((prev) => {
+        const len = displayData.current?.images?.length || 1
+        return prev < len - 1 ? prev + 1 : 0
+      })
     }, 3000)
     return () => clearInterval(interval)
-  }, [activeArt])
+  }, [mounted])
+
+  const art = displayData.current
 
   return (
     <div 
@@ -26,27 +60,27 @@ export default function HUD() {
         pointerEvents: 'none',
         zIndex: 1000,
         display: 'flex',
-        justifyContent: activeArt ? 'flex-end' : 'center',
+        justifyContent: 'flex-end',
         alignItems: 'center',
         padding: '50px 10%',
         boxSizing: 'border-box'
       }}
     >
-      {activeArt && (
+      {/* Art info panel — always at flex-end, never moves position */}
+      {mounted && art && (
         <div style={{
           background: 'rgba(255, 255, 255, 0.8)',
           color: '#000',
           padding: '50px 40px',
           borderRadius: '0px',
           width: '450px',
-          pointerEvents: 'auto',
+          pointerEvents: fadeIn ? 'auto' : 'none',
           backdropFilter: 'blur(40px)',
           WebkitBackdropFilter: 'blur(40px)',
           border: '1px solid #000',
           boxShadow: '15px 15px 0px rgba(204, 255, 0, 1)',
-          transition: 'all 0.6s cubic-bezier(0.2, 0.8, 0.2, 1)',
-          opacity: activeArt ? 1 : 0,
-          transform: activeArt ? 'translateX(0)' : 'translateX(100px)'
+          transition: 'opacity 0.6s ease-in-out',
+          opacity: fadeIn ? 1 : 0
         }}>
           <div style={{ 
             fontFamily: '"Space Mono", monospace', 
@@ -72,7 +106,7 @@ export default function HUD() {
             fontStyle: 'italic',
             letterSpacing: '-1px',
             lineHeight: '1.1'
-          }}>{activeArt.title}</h1>
+          }}>{art.title}</h1>
           
           <h3 style={{ 
             fontFamily: '"Space Mono", monospace',
@@ -85,11 +119,11 @@ export default function HUD() {
             background: '#ccff00',
             display: 'inline-block',
             padding: '2px 8px'
-          }}>AUTHOR: {activeArt.artist}</h3>
+          }}>AUTHOR: {art.artist}</h3>
           
-          {activeArt.images && activeArt.images.length > 0 && (
+          {art.images && art.images.length > 0 && (
             <div style={{ position: 'relative', marginBottom: '30px', border: '1px solid #000' }}>
-              <img src={activeArt.images[currentImageIndex]} alt="Artwork" style={{ 
+              <img src={art.images[currentImageIndex]} alt="Artwork" style={{ 
                 width: '100%', 
                 height: '250px', 
                 objectFit: 'cover', 
@@ -109,10 +143,10 @@ export default function HUD() {
                 fontWeight: 'bold',
                 border: '1px solid #000'
               }}>
-                {currentImageIndex + 1} / {activeArt.images.length}
+                {currentImageIndex + 1} / {art.images.length}
               </div>
 
-              {activeArt.images.length > 1 && (
+              {art.images.length > 1 && (
                 <div style={{ 
                   position: 'absolute', 
                   bottom: '10px', 
@@ -123,7 +157,7 @@ export default function HUD() {
                   <button 
                     onClick={(e) => {
                       e.stopPropagation();
-                      setCurrentImageIndex((prev) => (prev > 0 ? prev - 1 : activeArt.images.length - 1));
+                      setCurrentImageIndex((prev) => (prev > 0 ? prev - 1 : art.images.length - 1));
                     }}
                     style={{ background: '#000', color: '#ccff00', border: '1px solid #ccff00', padding: '5px 15px', fontFamily: '"Space Mono", monospace', cursor: 'pointer', fontWeight: 'bold', transition: 'all 0.2s' }}
                     onMouseEnter={(e) => e.target.style.background = '#222'}
@@ -134,7 +168,7 @@ export default function HUD() {
                   <button 
                     onClick={(e) => {
                       e.stopPropagation();
-                      setCurrentImageIndex((prev) => (prev < activeArt.images.length - 1 ? prev + 1 : 0));
+                      setCurrentImageIndex((prev) => (prev < art.images.length - 1 ? prev + 1 : 0));
                     }}
                     style={{ background: '#000', color: '#ccff00', border: '1px solid #ccff00', padding: '5px 15px', fontFamily: '"Space Mono", monospace', cursor: 'pointer', fontWeight: 'bold', transition: 'all 0.2s' }}
                     onMouseEnter={(e) => e.target.style.background = '#222'}
@@ -157,11 +191,11 @@ export default function HUD() {
             borderLeft: '4px solid #ccff00',
             paddingLeft: '15px',
             textTransform: 'uppercase'
-          }}>{activeArt.description}</div>
+          }}>{art.description}</div>
           
           <div style={{ display: 'flex', gap: '10px', marginTop: '40px' }}>
             <button 
-              onClick={() => alert(`Añadido al carrito: ${activeArt.title}`)}
+              onClick={() => alert(`Añadido al carrito: ${art.title}`)}
               style={{
                 flex: 1,
                 padding: '16px 10px',
@@ -187,6 +221,11 @@ export default function HUD() {
               onClick={(e) => {
                 e.target.blur();
                 setActiveArt(null);
+                // Recuperar automáticamente el control del ratón (pointer lock)
+                const canvas = document.querySelector('canvas');
+                if (canvas && !document.pointerLockElement) {
+                  canvas.requestPointerLock();
+                }
               }}
               style={{
                 flex: 1,
@@ -211,31 +250,32 @@ export default function HUD() {
           </div>
         </div>
       )}
-      {!activeArt && (
-        <div 
-          id="hud-crosshair"
-          style={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            pointerEvents: 'none',
-            zIndex: 1000,
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            transition: 'all 0.2s ease-out'
-          }}
-        >
-          <div className="crosshair-dot" style={{
-            width: '6px',
-            height: '6px',
-            background: 'white',
-            borderRadius: '50%',
-            mixBlendMode: 'difference'
-          }} />
-        </div>
-      )}
+
+      {/* Crosshair — fades in/out instead of popping */}
+      <div 
+        id="hud-crosshair"
+        style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          pointerEvents: 'none',
+          zIndex: 1000,
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          transition: 'opacity 0.4s ease-in-out',
+          opacity: activeArt ? 0 : 1
+        }}
+      >
+        <div className="crosshair-dot" style={{
+          width: '6px',
+          height: '6px',
+          background: 'white',
+          borderRadius: '50%',
+          mixBlendMode: 'difference'
+        }} />
+      </div>
     </div>
   )
 }
