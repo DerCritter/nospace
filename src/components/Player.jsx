@@ -124,6 +124,13 @@ export default function Player({ spawnPosition = [0, 2, 0], lighting }) {
     const position = rigidBody.current.translation()
     const currentLighting = lightingRef.current
     
+    // Safety respawn: if player falls below the map, teleport back up
+    if (position.y < -10) {
+      rigidBody.current.setTranslation({ x: spawnPosition[0], y: spawnPosition[1] + 3, z: spawnPosition[2] }, true)
+      rigidBody.current.setLinvel({ x: 0, y: 0, z: 0 }, true)
+      return
+    }
+    
     // ---- INSPECTION MODE ----
     if (activeArt && activeArt.position) {
       // Freeze player physics (keep gravity)

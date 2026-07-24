@@ -70,6 +70,40 @@ export default function Gallery({ lighting }) {
     }
   ]
 
+  // Downsample de texturas en runtime para ahorrar VRAM sin tocar los GLBs
+  // Usa un canvas offscreen para redibujar cada textura a resolución menor
+  const downsampleTextures = (root, maxSize = 1024) => {
+    const processed = new Set()
+    root.traverse((child) => {
+      if (!child.isMesh || !child.material) return
+      const materials = Array.isArray(child.material) ? child.material : [child.material]
+      materials.forEach((mat) => {
+        const textureKeys = [
+          'map', 'normalMap', 'roughnessMap', 'metalnessMap',
+          'aoMap', 'emissiveMap', 'specularMap', 'specularColorMap'
+        ]
+        textureKeys.forEach((key) => {
+          const tex = mat[key]
+          if (!tex || !tex.image || processed.has(tex.uuid)) return
+          processed.add(tex.uuid)
+          const img = tex.image
+          if (img.width <= maxSize && img.height <= maxSize) return
+          // Redibujar la imagen a menor resolución con canvas offscreen
+          const canvas = document.createElement('canvas')
+          const aspect = img.width / img.height
+          canvas.width = Math.min(img.width, maxSize)
+          canvas.height = Math.min(img.height, maxSize)
+          if (aspect > 1) canvas.height = canvas.width / aspect
+          else canvas.width = canvas.height * aspect
+          const ctx = canvas.getContext('2d')
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+          tex.image = canvas
+          tex.needsUpdate = true
+        })
+      })
+    })
+  }
+
   useEffect(() => {
     scene.traverse((child) => {
       if (child.isMesh) {
@@ -89,6 +123,8 @@ export default function Gallery({ lighting }) {
         }
       }
     })
+    // Reducir texturas de 2048 → 1024 en VRAM (no toca geometría ni física)
+    downsampleTextures(scene, 1024)
   }, [scene])
 
   return (
