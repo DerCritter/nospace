@@ -13,6 +13,7 @@ export default function WaterSurface({ geometry, position, quaternion, scale, co
   // Cargamos la textura de normales que da relieve y forma a las olas
   const waterNormals = useLoader(THREE.TextureLoader, '/waternormals.jpg')
   waterNormals.wrapS = waterNormals.wrapT = THREE.RepeatWrapping
+  waterNormals.repeat.set(50, 50) // Escala las normales para que no se vea estirado en geometrías gigantes
 
   // Configuración dinámica del shader de agua enlazada a Leva
   const waterConfig = useMemo(() => ({

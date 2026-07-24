@@ -100,8 +100,9 @@ export default function CinematicLighting({ lighting }) {
       {/* Fondo Gradiente */}
       <mesh scale={200}>
         <sphereGeometry args={[32, 32]} />
-        <meshBasicMaterial side={THREE.BackSide} depthWrite={false} fog={false}>
+        <meshBasicMaterial side={THREE.BackSide} toneMapped={false} fog={false}>
           <GradientTexture
+            attach="map"
             stops={[0, 1]}
             colors={[lighting.skyColorTop, lighting.skyColorBottom]}
             size={1024}

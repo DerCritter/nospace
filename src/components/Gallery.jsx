@@ -63,8 +63,9 @@ export default function Gallery({ lighting }) {
       description: '3D Print Biodegradable resin.\nUse: Bracelet.',
       url: '/models/pieces/piece_2.glb',
       images: [
-        'https://picsum.photos/seed/chnops1/400/300',
-        'https://picsum.photos/seed/chnops2/400/300'
+        '/piece_1_1.jpg',
+        '/piece_1_2.jpg',
+        '/piece_1_3.jpg'
       ]
     }
   ]

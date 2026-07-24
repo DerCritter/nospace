@@ -9,30 +9,30 @@ function usePlayerControls() {
   
   useEffect(() => {
     const handleKeyDown = (e) => {
-      switch (e.code) {
-        case 'KeyW':
-        case 'ArrowUp': setMovement(m => ({ ...m, forward: true })); break;
-        case 'KeyS':
-        case 'ArrowDown': setMovement(m => ({ ...m, backward: true })); break;
-        case 'KeyA':
-        case 'ArrowLeft': setMovement(m => ({ ...m, left: true })); break;
-        case 'KeyD':
-        case 'ArrowRight': setMovement(m => ({ ...m, right: true })); break;
-        case 'Space': setMovement(m => ({ ...m, jump: true })); break;
-      }
+      const isUp = e.code === 'KeyW' || e.code === 'ArrowUp' || e.key === 'ArrowUp'
+      const isDown = e.code === 'KeyS' || e.code === 'ArrowDown' || e.key === 'ArrowDown'
+      const isLeft = e.code === 'KeyA' || e.code === 'ArrowLeft' || e.key === 'ArrowLeft'
+      const isRight = e.code === 'KeyD' || e.code === 'ArrowRight' || e.key === 'ArrowRight'
+      const isJump = e.code === 'Space' || e.key === ' '
+
+      if (isUp) setMovement(m => ({ ...m, forward: true }))
+      if (isDown) setMovement(m => ({ ...m, backward: true }))
+      if (isLeft) setMovement(m => ({ ...m, left: true }))
+      if (isRight) setMovement(m => ({ ...m, right: true }))
+      if (isJump) setMovement(m => ({ ...m, jump: true }))
     }
     const handleKeyUp = (e) => {
-      switch (e.code) {
-        case 'KeyW':
-        case 'ArrowUp': setMovement(m => ({ ...m, forward: false })); break;
-        case 'KeyS':
-        case 'ArrowDown': setMovement(m => ({ ...m, backward: false })); break;
-        case 'KeyA':
-        case 'ArrowLeft': setMovement(m => ({ ...m, left: false })); break;
-        case 'KeyD':
-        case 'ArrowRight': setMovement(m => ({ ...m, right: false })); break;
-        case 'Space': setMovement(m => ({ ...m, jump: false })); break;
-      }
+      const isUp = e.code === 'KeyW' || e.code === 'ArrowUp' || e.key === 'ArrowUp'
+      const isDown = e.code === 'KeyS' || e.code === 'ArrowDown' || e.key === 'ArrowDown'
+      const isLeft = e.code === 'KeyA' || e.code === 'ArrowLeft' || e.key === 'ArrowLeft'
+      const isRight = e.code === 'KeyD' || e.code === 'ArrowRight' || e.key === 'ArrowRight'
+      const isJump = e.code === 'Space' || e.key === ' '
+
+      if (isUp) setMovement(m => ({ ...m, forward: false }))
+      if (isDown) setMovement(m => ({ ...m, backward: false }))
+      if (isLeft) setMovement(m => ({ ...m, left: false }))
+      if (isRight) setMovement(m => ({ ...m, right: false }))
+      if (isJump) setMovement(m => ({ ...m, jump: false }))
     }
     document.addEventListener('keydown', handleKeyDown)
     document.addEventListener('keyup', handleKeyUp)
@@ -174,6 +174,10 @@ export default function Player({ spawnPosition = [0, 2, 0], lighting }) {
     // Anchor camera to player head
     const headPos = new THREE.Vector3(position.x, position.y + 0.8, position.z)
     state.camera.position.lerp(headPos, delta * 15)
+    
+    // Smoothly restore the original manual rotation so the camera doesn't stay stuck looking at the art
+    const targetWalkQuat = new THREE.Quaternion().setFromEuler(euler.current)
+    state.camera.quaternion.slerp(targetWalkQuat, delta * 8)
     
     // Movement direction from camera
     state.camera.getWorldDirection(cameraDir)

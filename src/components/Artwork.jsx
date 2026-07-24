@@ -1,6 +1,7 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, useMemo } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { useGLTF, Html } from '@react-three/drei'
+import * as THREE from 'three'
 import { useStore } from '../store/useStore'
 
 export default function Artwork({ position, url = '/models/pieces/piece_1.glb', artData }) {
@@ -10,6 +11,10 @@ export default function Artwork({ position, url = '/models/pieces/piece_1.glb', 
   const setActiveArt = useStore((state) => state.setActiveArt)
   const activeArt = useStore((state) => state.activeArt)
   const [hovered, setHovered] = useState(false)
+  const [isClose, setIsClose] = useState(false)
+
+  // Memoize position vector to avoid recreating it every frame
+  const artPosVector = useMemo(() => new THREE.Vector3(...position), [position])
 
   useFrame((state, delta) => {
     // Solo rotamos el modelo 3D, no el contenedor principal
@@ -20,6 +25,13 @@ export default function Artwork({ position, url = '/models/pieces/piece_1.glb', 
     if (groupRef.current) {
       const floatOffset = Math.sin(state.clock.elapsedTime * 2) * 0.1
       groupRef.current.position.y = position[1] + floatOffset
+    }
+    
+    // Check distance to player camera for interaction range (max 5 meters from edge)
+    const dist = state.camera.position.distanceTo(artPosVector)
+    const currentlyClose = dist < 7.5 // 7.5 gives roughly 5 meters from edge of hitbox
+    if (isClose !== currentlyClose) {
+      setIsClose(currentlyClose)
     }
   })
 
@@ -41,7 +53,7 @@ export default function Artwork({ position, url = '/models/pieces/piece_1.glb', 
         }}
         onClick={(e) => {
           e.stopPropagation()
-          if (!activeArt) setActiveArt({ ...artData, position })
+          if (!activeArt && isClose) setActiveArt({ ...artData, position })
         }}
       >
         {/* Altura de 6 metros para que, sin importar donde esté el anclaje, cubra TODO */}
@@ -50,7 +62,7 @@ export default function Artwork({ position, url = '/models/pieces/piece_1.glb', 
       </mesh>
 
       {/* Label "INTERACT" — flat, no rota, estilo tipográfico brutalist/rave de la web */}
-      {hovered && !activeArt && (
+      {hovered && isClose && !activeArt && (
         <Html
           position={[1.2, 0.2, 0]} // Bajado a la altura de los ojos / cerca de la escultura real
           center
